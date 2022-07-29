@@ -10,26 +10,37 @@ pragma solidity ^0.8.4;
 
 contract Farm is Ownable, ReentrancyGuard{
 
+    //import DataFarm Contract
     DataFarm private dataFarm;
 
+    //import TokenFarm Contract
     TokenFarm private tokenFarm;
 
+    //Month accept as farming date 1
     uint public farmingDate1;
 
+    //Month accept as farming date 2
     uint public farmingDate2;
 
-    uint public tokenMultipleRewards;
+    //Percent for Token Rewards
+    uint public tokenPercentRewards;
 
+    //Percent for Eth Rewards
     uint public ethPercentRewards;
 
+    //blocks in one day
     uint blockPerDay = 6400;
 
 
+    //Passing FarmingDate1 in months(ex 5 for 5 months),
+    //Passing FarmingDate2 in months(ex 10 for 10 months),
+    //Passing tokenPercentRewards in a range of 0(not included) and 40(we will need it for Token rewards),
+    //Passing ethPercentRewards in a range of 0(not included) and 5(we will need it for eth rewards)
 
     constructor(
         uint _farmingDate1,
         uint _farmingDate2,
-        uint _tokenMultipleRewards,
+        uint _tokenPercentRewards,
         uint _ethPercentRewards
         )
         payable{
@@ -41,26 +52,27 @@ contract Farm is Ownable, ReentrancyGuard{
                 );
 
             require(
-                _tokenMultipleRewards > 0 &&
-                _tokenMultipleRewards <= 40,
+                _tokenPercentRewards > 0 &&
+                _tokenPercentRewards <= 40,
                 "Interest Too High or Too Low. Set Interest between 0(not included) and 40%"
                 );
 
 
             require(
-                _tokenMultipleRewards > _ethPercentRewards,
+                _tokenPercentRewards > _ethPercentRewards,
                 "Tokens Rewards are always higher than Eth Rewards!"
                 );
 
 
             farmingDate1 = _farmingDate1;
             farmingDate2 = _farmingDate2;
-            tokenMultipleRewards = _tokenMultipleRewards;
+            tokenPercentRewards = _tokenPercentRewards;
             ethPercentRewards = _ethPercentRewards;
         }
 
 
 
+    //Pointer for DataFarm Contract
 
     function initDataFarm(address _dataFarmAddress)public onlyOwner{
         dataFarm = DataFarm(_dataFarmAddress);
@@ -68,12 +80,16 @@ contract Farm is Ownable, ReentrancyGuard{
 
 
 
+    //Pointer for TokenFarm Contract
+
     function initTokenFarm(address _tokenFarmAddress)public onlyOwner{
         tokenFarm = TokenFarm(_tokenFarmAddress);
         tokenFarm.increaseAllowance(address(this), tokenFarm.balanceOf(_tokenFarmAddress));
     }
 
 
+
+    //Internal function to calculate the end of farming
 
     function calculateTimeline(uint _dateChosen)internal{
         require(
@@ -94,6 +110,7 @@ contract Farm is Ownable, ReentrancyGuard{
 
 
 
+    //Calculate Rewards(Token or Eth) in real time
 
     function calculateRewardsAmountByTime(address _userAddress)public view returns(uint rewards){
         string memory _paymentChosed = dataFarm.getPaymentChosed(_userAddress);
@@ -129,6 +146,8 @@ contract Farm is Ownable, ReentrancyGuard{
 
 
 
+    //Calculate Total Rewards(Token or Eth). line 163 not an error of calculation
+
     function calculateRewardsAmount(
         address _userAddress,
         string memory _paymentChosed
@@ -149,7 +168,7 @@ contract Farm is Ownable, ReentrancyGuard{
                 keccak256(bytes(_paymentChosed)) == keccak256(bytes("token"))
                 ){
                     uint amountDeposit = dataFarm.getAmountUserDeposit(_userAddress);
-                    uint referralPercent = tokenMultipleRewards;
+                    uint referralPercent = tokenPercentRewards;
                     uint totalRewards = amountDeposit * referralPercent;
                     dataFarm.setRewardsTotalExpected(_userAddress, totalRewards);
                 }
@@ -164,6 +183,8 @@ contract Farm is Ownable, ReentrancyGuard{
 
 
 
+    //Custom error
+
     error RightPaymentSetted(
         string paymentAccepted1,
         string paymentAccepted2,
@@ -171,6 +192,10 @@ contract Farm is Ownable, ReentrancyGuard{
     );
 
 
+
+    //Farming Function.
+    //Choose a farming date available and set it
+    //Choose an accepted payment(Token, token, TOKEN, Eth, ETH, eth) and set it
 
     function farming(
         uint _withdrawTimeline,
@@ -190,6 +215,9 @@ contract Farm is Ownable, ReentrancyGuard{
 
 
 
+    //Unfarming Function.
+    //Some ether(5%) from rewards (if you choose eth as rewards) will be send to the farm contract as fee.
+    //Some ether(2%) from deposit (if you choose Token as rewards) will be send to the farm contract as fee.
 
     function unfarming()public nonReentrant{
         require(dataFarm.getUserInFarm(msg.sender) == true, "Nothing In Farm!");
@@ -199,7 +227,7 @@ contract Farm is Ownable, ReentrancyGuard{
             keccak256(bytes(dataFarm.getPaymentChosed(msg.sender))) == keccak256(bytes("eth"))
         ){
             uint ethRewards = calculateRewardsAmountByTime(msg.sender);
-            uint farmRewardsPercent = (ethRewards/100)*10;
+            uint farmRewardsPercent = (ethRewards/100)*5;
             uint amountForUser = ethRewards - farmRewardsPercent;
             payable(msg.sender).transfer(amountForUser);
             payable(address(this)).transfer(farmRewardsPercent);
@@ -231,13 +259,7 @@ contract Farm is Ownable, ReentrancyGuard{
     }
 
 
-
-    fallback()external payable{}
-
-
-    //receive()external payable{
-//
-  //  }
+    receive()external payable{}
 
 
     function farmBalance()public view returns(uint){

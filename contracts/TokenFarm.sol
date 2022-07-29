@@ -30,7 +30,7 @@ contract TokenFarm is ERC20, Ownable{
     }
 
 
-
+    //increaseAllowance override
     function increaseAllowance(address spender, uint256 addedValue) public virtual override returns (bool) {
         address owner = address(this);
         _approve(owner, spender, allowance(owner, spender) + addedValue);
