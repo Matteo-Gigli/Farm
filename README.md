@@ -29,3 +29,11 @@ and the initTokenFarm function(), passing the TokenFarm contract address.</stron
 and store this data.</strong></p>
 <p><strong></strong></p>
 <p><strong></strong></p>
+
+
+<h3🌱 Farm.sol</h3>
+21
+<br>
+<p><strong></strong></p>
+31
+<p><strong></strong></p>
